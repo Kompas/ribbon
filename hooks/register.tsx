@@ -81,7 +81,7 @@ export const viewOf = (c: CacheFacts | null, now: number): CacheView | null => {
 const shortModel = (m: string | null): string => (m ? m.replace(/^claude-/, '').replace(/\[1m\]$/, '') : '')
 
 export const LEGEND = [
-  'ribbon: what the band shows',
+  'What the band shows',
   '',
   '  Week ●●●●●●●○○○ 71% left · resets in 3d 9h',
   '    How much of your plan\'s 7-day allowance is left, and when it refills.',
