@@ -87,6 +87,7 @@ export const LEGEND = [
   '    How much of your plan\'s 7-day allowance is left, and when it refills.',
   '  5-hour ●●●●●●●●●○ 92% left · resets in 2h 10m',
   '    The same for the rolling 5-hour window. LOW shows under 15%.',
+  '    Some plans only report the weekly window; then only Week shows.',
   '  Context 34%',
   '    How full this conversation\'s context window is. Near 100% it gets compacted.',
   '  Cache warm · cold in 56m',
@@ -328,16 +329,16 @@ export const register: Register = on => {
       return {
         key: `w-${w.kind}`,
         line: [
-          { text: `${name} `, color: 'subtle', bold: true },
+          { text: `${name} `, color: 'subtle' },
           { text: d.on, color: fill },
           { text: d.off, color: 'inactive' },
-          { text: ` ${left}% left`, color: 'text', bold: true },
+          { text: ` ${left}% left`,  },
           ...low,
           ...(reset ? [{ text: ` · ${reset}`, color: 'subtle' }] : []),
         ],
         block: [
-          [{ text: `${name} `, color: 'subtle', bold: true }, { text: d.on, color: fill }, { text: d.off, color: 'inactive' }],
-          [{ text: `${left}% left`, color: 'text', bold: true }, ...low],
+          [{ text: `${name} `, color: 'subtle' }, { text: d.on, color: fill }, { text: d.off, color: 'inactive' }],
+          [{ text: `${left}% left`,  }, ...low],
           ...(reset ? [[{ text: reset, color: 'subtle' }]] : []),
         ],
       }
@@ -352,12 +353,12 @@ export const register: Register = on => {
         : {
             key: 'context',
             line: [
-              { text: 'Context ', color: 'subtle', bold: true },
-              { text: `${ctxPct}%`, color: ctxPct >= 85 ? 'warning' : 'text', bold: true },
+              { text: 'Context ', color: 'subtle' },
+              { text: `${ctxPct}%`, color: ctxPct >= 85 ? 'warning' : undefined },
             ],
             block: [
-              [{ text: 'Context', color: 'subtle', bold: true }],
-              [{ text: `${ctxPct}% used`, color: ctxPct >= 85 ? 'warning' : 'text', bold: true }],
+              [{ text: 'Context', color: 'subtle' }],
+              [{ text: `${ctxPct}% used`, color: ctxPct >= 85 ? 'warning' : undefined }],
               [{ text: `${tok(ctxTokens)} of ${tok(ctxWindow)}`, color: 'subtle' }],
             ],
           }
@@ -372,15 +373,15 @@ export const register: Register = on => {
       : {
           key: 'cache',
           line: [
-            { text: 'Cache ', color: 'subtle', bold: true },
-            { text: cold ? 'cold' : 'warm', color: hue, bold: true },
+            { text: 'Cache ', color: 'subtle' },
+            { text: cold ? 'cold' : 'warm', color: hue },
             { text: cold ? ` ${view.idle}` : ` · cold in ${left}m`, color: 'subtle' },
-            ...(cold && price ? [{ text: ' · next msg ', color: 'subtle' }, { text: price, color: 'text', bold: true }] : []),
+            ...(cold && price ? [{ text: ' · next msg ', color: 'subtle' }, { text: price,  }] : []),
           ],
           block: [
-            [{ text: 'Cache ', color: 'subtle', bold: true }, { text: cold ? 'cold' : 'warm', color: hue, bold: true }],
+            [{ text: 'Cache ', color: 'subtle' }, { text: cold ? 'cold' : 'warm', color: hue }],
             [{ text: cold ? `idle ${view.idle}` : `cold in ${left}m`, color: 'subtle' }],
-            ...(price ? [[{ text: price, color: 'text', bold: true }, { text: ' next msg', color: 'subtle' }]] : []),
+            ...(price ? [[{ text: price,  }, { text: ' next msg', color: 'subtle' }]] : []),
           ],
         }
 
@@ -392,24 +393,24 @@ export const register: Register = on => {
       if (!noWindows) {
         return {
           key: 'wait',
-          line: [{ text: 'Usage ', color: 'subtle', bold: true }, { text: 'shows after your first reply', color: 'inactive' }],
-          block: [[{ text: 'Usage', color: 'subtle', bold: true }], [{ text: 'after first reply', color: 'inactive' }]],
+          line: [{ text: 'Usage ', color: 'subtle' }, { text: 'shows after your first reply', color: 'inactive' }],
+          block: [[{ text: 'Usage', color: 'subtle' }], [{ text: 'after first reply', color: 'inactive' }]],
         }
       }
       if (plan === 'api') {
         const cost = acct?.usd
         return {
           key: 'api',
-          line: [{ text: 'API key', color: 'subtle', bold: true }, ...(typeof cost === 'number' ? [{ text: ' · session ', color: 'subtle' }, { text: usd(cost), color: 'text', bold: true }] : [])],
-          block: [[{ text: 'API key', color: 'subtle', bold: true }], ...(typeof cost === 'number' ? [[{ text: `${usd(cost)} so far`, color: 'text', bold: true }]] : [])],
+          line: [{ text: 'API key', color: 'subtle' }, ...(typeof cost === 'number' ? [{ text: ' · session ', color: 'subtle' }, { text: usd(cost),  }] : [])],
+          block: [[{ text: 'API key', color: 'subtle' }], ...(typeof cost === 'number' ? [[{ text: `${usd(cost)} so far`,  }]] : [])],
         }
       }
       const model = shortModel(facts?.model ?? null)
       const label = plan === 'other' ? 'Model' : 'No plan limits'
       return {
         key: 'model',
-        line: [{ text: label, color: 'subtle', bold: true }, ...(model && plan === 'other' ? [{ text: ` ${model}`, color: 'text', bold: true }] : [])],
-        block: [[{ text: label, color: 'subtle', bold: true }], ...(model && plan === 'other' ? [[{ text: model, color: 'text', bold: true }]] : [])],
+        line: [{ text: label, color: 'subtle' }, ...(model && plan === 'other' ? [{ text: ` ${model}`,  }] : [])],
+        block: [[{ text: label, color: 'subtle' }], ...(model && plan === 'other' ? [[{ text: model,  }]] : [])],
       }
     }
 

@@ -37,7 +37,7 @@ Type `/ribbon` in any session for this legend.
 | Part | Meaning |
 | --- | --- |
 | `Week ●●●●●●●○○○ 71% left · resets in 3d 9h` | How much of your plan's 7-day allowance is left, and when it refills. The dots show what is **left**. |
-| `5-hour ●●●●●●●●●○ 92% left · resets in 2h 10m` | The same for the rolling 5-hour window. Under 15% the dots turn amber and **LOW** shows; under 5% they turn red. |
+| `5-hour ●●●●●●●●●○ 92% left · resets in 2h 10m` | The same for the rolling 5-hour window. Under 15% the dots turn amber and **LOW** shows; under 5% they turn red. Some plans only report the weekly window; then only `Week` shows, as in Claude Code's own `/usage`. |
 | `Context 34%` | How full this conversation's context window is. Amber from 85%. |
 | `Cache warm · cold in 56m` | Your chat is in Anthropic's prompt cache, so the next message is cheap. The cache lasts an hour after your last message. |
 | `Cache cold 3h 5m · next msg $4.78` | The hour has passed. The next message re-sends the whole chat at full price. |
