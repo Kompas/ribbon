@@ -1,6 +1,6 @@
 {
   "name": "ribbon",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "A quiet band above the prompt: how much of your week and 5-hour usage is left, the context, and whether the prompt cache is warm or cold. Follows your theme, refreshes on account switch, and works with API keys and local models.",
   "author": {
     "name": "Kompas",
@@ -51,6 +51,12 @@
         "when it matters"
       ],
       "default": "always"
+    },
+    "showDots": {
+      "type": "boolean",
+      "title": "Show the dot bars",
+      "description": "The ●●●●○○ bars beside the week and 5-hour windows. Off: just the percentage.",
+      "default": true
     },
     "showWeek": {
       "type": "boolean",

@@ -53,6 +53,7 @@ Open `/config` and scroll to **ribbon**. Every change shows at once.
 | Style | `full` · `minimal` | `minimal` is numbers only, `96% · 8% · warm 60m`, in a fixed order: week, 5-hour, context, cache. A cold cache shows the next message's price (`cold $4.78`). No Details card. |
 | Colours | `full` · `muted` · `off` | `muted` is all grey, in Claude Code's own greys, with colour only for a low window or a full context. `off` has no colour at all, warnings in bold. |
 | Show | `always` · `when it matters` | `when it matters` hides the band until a window drops under 25%, the cache goes cold, or the context passes 85%. |
+| Show the dot bars | on · off | Off: `Week 96% left · resets in 6d 21h`, no dots. A low window colours the percentage instead. |
 | Show the week / 5-hour window / context / cache | on · off | Leave out the parts you don't need. Only the context, for example. |
 | Cache length | `auto` · `5 minutes` · `1 hour` | `auto` is 1 hour on a Claude plan and 5 minutes on an API key. Set it by hand if yours differs. The 5-minute cache is also priced at its own write rate (1.25x input). |
 

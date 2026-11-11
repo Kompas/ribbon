@@ -103,7 +103,7 @@ export const LEGEND = [
   'On an API key it shows the session\'s cost; on a cloud provider, gateway or local',
   'model it shows the model and the context only (no plan limits apply there).',
   'Options in /config, under ribbon: Style (full or minimal, numbers only), Colours (full, muted, off),',
-  'Show (always, or only when it matters), which parts to show, and the cache length.',
+  'Show (always, or only when it matters), the dot bars, which parts to show, and the cache length.',
   'The [-] at the band\'s right is Claude Code\'s own: it folds the band away.',
 ].join('\n')
 
@@ -205,6 +205,8 @@ export const register: Register = (on, options) => {
     context: options?.showContext !== false,
     cache: options?.showCache !== false,
   }
+  // showDots: the dot bars beside each usage window.
+  const showDots = options?.showDots !== false
   // cacheLength: auto (1 hour on a plan, 5 minutes on an API key), 5 minutes or 1 hour.
   const cacheMinutes = (plan: Plan): number =>
     options?.cacheLength === '5 minutes' ? 5 : options?.cacheLength === '1 hour' ? 60 : plan === 'api' ? 5 : 60
@@ -353,7 +355,7 @@ export const register: Register = (on, options) => {
 
     const windowItem = (w: Window, cells: number): Item => {
       const left = Math.max(0, Math.round((100 - w.percentUsed) * 10) / 10)
-      const d = dots(left, cells)
+      const d = showDots ? dots(left, cells) : { on: '', off: '' }
       const fill = left < EMPTY_AT ? 'error' : left < LOW_AT ? 'warning' : 'claude'
       const name = NAMES[w.kind] ?? w.kind
       const reset = fmtReset(w.resetsAt, now)
@@ -362,15 +364,14 @@ export const register: Register = (on, options) => {
         key: `w-${w.kind}`,
         line: [
           { text: `${name} `, color: 'subtle' },
-          { text: d.on, color: fill },
-          { text: d.off, color: 'subtle' },
-          { text: ` ${left}% left`,  },
+          ...(showDots ? [{ text: d.on, color: fill }, { text: d.off, color: 'subtle' }] : []),
+          { text: showDots ? ` ${left}% left` : `${left}% left`, color: showDots ? undefined : fill === 'claude' ? undefined : fill },
           ...low,
           ...(reset ? [{ text: ` · ${reset}`, color: 'subtle' }] : []),
         ],
         block: [
-          [{ text: `${name} `, color: 'subtle' }, { text: d.on, color: fill }, { text: d.off, color: 'subtle' }],
-          [{ text: `${left}% left`,  }, ...low],
+          [{ text: showDots ? `${name} ` : name, color: 'subtle' }, ...(showDots ? [{ text: d.on, color: fill }, { text: d.off, color: 'subtle' }] : [])],
+          [{ text: `${left}% left`, color: showDots || fill === 'claude' ? undefined : fill }, ...low],
           ...(reset ? [[{ text: reset, color: 'subtle' }]] : []),
         ],
       }

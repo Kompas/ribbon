@@ -283,3 +283,17 @@ test('cache length 5 minutes: cold after 5 minutes, priced at the 1.25x write', 
   expect(await band.find({ text: '$0.08' })).toBeDefined()
   await band.unmount()
 })
+
+test('show the dot bars off: the percentage without dots, a low window still coloured', { options: { showDots: false } }, async ($, on) => {
+  await seed($, on, 60, [{ kind: 'seven_day', percentUsed: 4 }, { kind: 'five_hour', percentUsed: 90 }])
+  for (const columns of [120, 36]) {
+    const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: { ...PROPS, bodyColumns: columns } })
+    const all = JSON.stringify(await band.find({ type: 'Box' }))
+    expect(all).not.toContain('●')
+    expect(all).not.toContain('○')
+    expect(all).toContain('96% left')
+    const low = (await band.findAll({ type: 'Text' })).find(t => t.text === '10% left')
+    expect(low?.props.color).toBe('warning')
+    await band.unmount()
+  }
+})
