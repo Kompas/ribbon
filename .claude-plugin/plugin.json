@@ -1,6 +1,6 @@
 {
   "name": "ribbon",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "A quiet band above the prompt: how much of your week and 5-hour usage is left, the context, and whether the prompt cache is warm or cold. Follows your theme, refreshes on account switch, and works with API keys and local models.",
   "author": {
     "name": "Kompas",
@@ -24,12 +24,68 @@
     "style": {
       "type": "string",
       "title": "Style",
-      "description": "full: labels, dot bars and reset times. minimal: numbers only, like 96% \u00b7 8% \u00b7 warm 60m (week, 5-hour, context, cache).",
+      "description": "full: labels, dot bars and reset times. minimal: numbers only, like 96% · 8% · warm 60m (week, 5-hour, context, cache).",
       "options": [
         "full",
         "minimal"
       ],
       "default": "full"
+    },
+    "colours": {
+      "type": "string",
+      "title": "Colours",
+      "description": "full: Claude's coral and the theme's colours. muted: everything grey, colour only when a window runs low or the context fills up. off: no colour, warnings in bold.",
+      "options": [
+        "full",
+        "muted",
+        "off"
+      ],
+      "default": "full"
+    },
+    "show": {
+      "type": "string",
+      "title": "Show",
+      "description": "always, or only when it matters: a window under 25% left, a cold cache, or a context over 85%.",
+      "options": [
+        "always",
+        "when it matters"
+      ],
+      "default": "always"
+    },
+    "showWeek": {
+      "type": "boolean",
+      "title": "Show the week",
+      "description": "The 7-day usage window.",
+      "default": true
+    },
+    "showFiveHour": {
+      "type": "boolean",
+      "title": "Show the 5-hour window",
+      "description": "The rolling 5-hour usage window, when your plan has one.",
+      "default": true
+    },
+    "showContext": {
+      "type": "boolean",
+      "title": "Show the context",
+      "description": "How full this conversation's context window is.",
+      "default": true
+    },
+    "showCache": {
+      "type": "boolean",
+      "title": "Show the cache",
+      "description": "Whether the prompt cache is warm or cold, and the next message's price.",
+      "default": true
+    },
+    "cacheLength": {
+      "type": "string",
+      "title": "Cache length",
+      "description": "How long the prompt cache lives. auto: 1 hour on a Claude plan, 5 minutes on an API key.",
+      "options": [
+        "auto",
+        "5 minutes",
+        "1 hour"
+      ],
+      "default": "auto"
     }
   }
 }

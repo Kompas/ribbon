@@ -224,3 +224,62 @@ test('minimal style on a local model shows the model and the context', { options
   expect(await band.find({ text: '25%' })).toBeDefined()
   await band.unmount()
 })
+
+const seed = async ($: Parameters<Parameters<typeof test>[1]>[0], on: Parameters<Parameters<typeof test>[1]>[1], idleSec: number, limits = WINDOWS) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: limits } }))
+  on('classic.SessionStart', () => ({}))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+  await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: idleSec, context_tokens: 16000, model: 'claude-opus-5-5' })
+}
+
+test('colours muted: grey text, colour kept only for a low window', { options: { colours: 'muted' } }, async ($, on) => {
+  await seed($, on, 60, [{ kind: 'seven_day', percentUsed: 90 }])
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  const all = JSON.stringify(await band.find({ type: 'Box' }))
+  expect(all).not.toContain('"claude"')
+  expect(all).not.toContain('"suggestion"')
+  expect(all).toContain('"warning"')
+  await band.unmount()
+})
+
+test('colours off: no colour at all, the warning in bold', { options: { colours: 'off' } }, async ($, on) => {
+  await seed($, on, 60, [{ kind: 'seven_day', percentUsed: 90 }])
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  const texts = await band.findAll({ type: 'Text' })
+  expect(texts.every(t => t.props.color === undefined)).toBe(true)
+  expect(texts.find(t => t.props.bold && t.text === ' LOW')).toBeDefined()
+  await band.unmount()
+})
+
+test('parts: only the context, when the other parts are switched off', { options: { showWeek: false, showFiveHour: false, showCache: false } }, async ($, on) => {
+  await seed($, on, 60)
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  const all = JSON.stringify(await band.find({ type: 'Box' }))
+  expect(await band.find({ text: '8%' })).toBeDefined()
+  for (const gone of ['Week', '5-hour', 'Cache', 'Usage']) expect(all).not.toContain(gone)
+  await band.unmount()
+})
+
+test('show when it matters: hidden while all is well, back once the cache goes cold', { options: { show: 'when it matters' } }, async ($, on) => {
+  await seed($, on, 60)
+  const calm = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(JSON.stringify(await calm.find({ type: 'Box' }) ?? null)).not.toContain('Week')
+  await calm.unmount()
+
+  await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 2 * 3600, context_tokens: 16000, model: 'claude-opus-5-5' })
+  const cold = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(await cold.find({ text: 'cold' })).toBeDefined()
+  await cold.unmount()
+})
+
+test('cache length 5 minutes: cold after 5 minutes, priced at the 1.25x write', { options: { cacheLength: '5 minutes' } }, async ($, on) => {
+  await seed($, on, 6 * 60)
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(await band.find({ text: 'cold' })).toBeDefined()
+  // Opus 5.5, 16k tokens, 1.25 x $4 per million: $0.08.
+  expect(await band.find({ text: '$0.08' })).toBeDefined()
+  await band.unmount()
+})

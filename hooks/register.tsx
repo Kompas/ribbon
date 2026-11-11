@@ -4,7 +4,7 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Account, CacheFacts, Fold, Plan, Window } from '../types'
 import { USAGE_BETA, USAGE_URL, accountKeyOf, parseUsage, planOf } from './account'
 import {
-  TTL_MIN, TTL_MS, bandPx, cardKindOf, cardSvg, familyOf, fmtIdle, mineModel, myCost, tok, usd,
+  TTL_MIN, bandPx, cardKindOf, cardSvg, familyOf, fmtIdle, mineModel, myCost, tok, usd,
 } from './cache-art'
 import type { CacheView } from './cache-art'
 
@@ -20,6 +20,8 @@ const CELLS = 10
 const TIGHT_CELLS = 6
 const LOW_AT = 15
 const EMPTY_AT = 5
+/** Under this much left, a window counts as mattering for the 'when it matters' option. */
+const MATTERS_AT = 25
 const GAP = 3
 /** Columns the desktop's Details / Hide button and its margin take beside the row. */
 const BUTTON_COLS = 12
@@ -60,20 +62,21 @@ export const fmtReset = (iso: string | undefined, now: number): string => {
 }
 
 /** What the cache reads, or null until a request is known, and for a model the band can't price. */
-export const viewOf = (c: CacheFacts | null, now: number): CacheView | null => {
+export const viewOf = (c: CacheFacts | null, now: number, ttlMin = TTL_MIN): CacheView | null => {
   if (!c || c.lastAt <= 0 || c.tokens <= 0) return null
   const mine = familyOf(c.model)
   // A local model or a gateway's own name: its cache, if any, isn't Anthropic's hour.
   if (!mine) return null
   const idleMs = Math.max(0, now - c.lastAt)
   return {
-    mode: idleMs >= TTL_MS ? 'cold' : 'warm',
+    mode: idleMs >= ttlMin * 60_000 ? 'cold' : 'warm',
     idle: fmtIdle(idleMs),
     idleMin: Math.floor(idleMs / 60000),
     tokens: c.tokens,
     window: c.window,
     mine,
     ...(typeof c.usd === 'number' ? { usd: c.usd } : {}),
+    ttlMin,
   }
 }
 
@@ -99,8 +102,8 @@ export const LEGEND = [
   '',
   'On an API key it shows the session\'s cost; on a cloud provider, gateway or local',
   'model it shows the model and the context only (no plan limits apply there).',
-  'Prefer numbers only? /config, ribbon, Style: minimal shows week, 5-hour, context and cache',
-  'as 96% · 8% · warm 60m.',
+  'Options in /config, under ribbon: Style (full or minimal, numbers only), Colours (full, muted, off),',
+  'Show (always, or only when it matters), which parts to show, and the cache length.',
   'The [-] at the band\'s right is Claude Code\'s own: it folds the band away.',
 ].join('\n')
 
@@ -189,8 +192,30 @@ const checkAccount = async ($: EngineInterface, force = false): Promise<void> =>
 
 
 export const register: Register = (on, options) => {
-  // full: labels, dot bars, reset times. minimal: numbers only. Set in /config.
+  // Every choice below is a row in /config; a change there reloads the module with new options.
+  // style: full (labels, dot bars, reset times) or minimal (numbers only).
   const style = options?.style === 'minimal' ? 'minimal' : 'full'
+  // colours: full, muted (grey, colour only for warnings) or off (no colour, warnings bold).
+  const colours = options?.colours === 'muted' || options?.colours === 'off' ? options.colours : 'full'
+  // show: always, or only when a window is low, the cache is cold or the context is nearly full.
+  const onlyWhenItMatters = options?.show === 'when it matters'
+  const parts = {
+    week: options?.showWeek !== false,
+    fiveHour: options?.showFiveHour !== false,
+    context: options?.showContext !== false,
+    cache: options?.showCache !== false,
+  }
+  // cacheLength: auto (1 hour on a plan, 5 minutes on an API key), 5 minutes or 1 hour.
+  const cacheMinutes = (plan: Plan): number =>
+    options?.cacheLength === '5 minutes' ? 5 : options?.cacheLength === '1 hour' ? 60 : plan === 'api' ? 5 : 60
+  /** A part's colour under the colours option. */
+  const tint = <T extends { color?: string; bold?: boolean }>(p: T): T => {
+    const warn = p.color === 'warning' || p.color === 'error'
+    if (colours === 'off') return { ...p, color: undefined, bold: p.bold || warn }
+    // muted: values and accents in Claude Code's own secondary grey, labels and empty dots fainter.
+    if (colours === 'muted') return { ...p, color: warn || p.color === 'subtle' ? p.color : p.color === 'inactive' ? 'subtle' : 'inactive' }
+    return p
+  }
 
   on('session.start', async ($, e, next) => {
     const r = await next(e)
@@ -312,11 +337,13 @@ export const register: Register = (on, options) => {
     // Svg draws on desktop, mobile and VS Code; the terminal has no card.
     const Svg = e.surface !== 'terminal' && 'Svg' in ui ? ui.Svg : null
     const now = await $.clock.now()
-    const list = await read($, windows)
+    const allWindows = await read($, windows)
+    const list = allWindows.filter(w => (w.kind === 'seven_day' ? parts.week : w.kind === 'five_hour' ? parts.fiveHour : true))
     const facts = await read($, cache)
-    const view = viewOf(facts, now)
     const acct = await read($, account)
     const plan: Plan = acct?.plan ?? 'subscription'
+    const ttlMin = cacheMinutes(plan)
+    const view = parts.cache ? viewOf(facts, now, ttlMin) : null
     const columns = e.props.bodyColumns ?? e.viewport?.columns ?? 100
 
     // ---- What there is to say, as items of text with a measured width ----
@@ -336,13 +363,13 @@ export const register: Register = (on, options) => {
         line: [
           { text: `${name} `, color: 'subtle' },
           { text: d.on, color: fill },
-          { text: d.off, color: 'inactive' },
+          { text: d.off, color: 'subtle' },
           { text: ` ${left}% left`,  },
           ...low,
           ...(reset ? [{ text: ` · ${reset}`, color: 'subtle' }] : []),
         ],
         block: [
-          [{ text: `${name} `, color: 'subtle' }, { text: d.on, color: fill }, { text: d.off, color: 'inactive' }],
+          [{ text: `${name} `, color: 'subtle' }, { text: d.on, color: fill }, { text: d.off, color: 'subtle' }],
           [{ text: `${left}% left`,  }, ...low],
           ...(reset ? [[{ text: reset, color: 'subtle' }]] : []),
         ],
@@ -351,7 +378,7 @@ export const register: Register = (on, options) => {
 
     const ctxTokens = facts?.tokens ?? 0
     const ctxWindow = facts?.window ?? 0
-    const ctxPct = ctxWindow > 0 && ctxTokens > 0 ? Math.min(100, Math.round((ctxTokens / ctxWindow) * 100)) : null
+    const ctxPct = parts.context && ctxWindow > 0 && ctxTokens > 0 ? Math.min(100, Math.round((ctxTokens / ctxWindow) * 100)) : null
     const contextItem: Item | null =
       ctxPct === null
         ? null
@@ -371,7 +398,7 @@ export const register: Register = (on, options) => {
     const mine = view ? mineModel(view) : undefined
     const cold = view?.mode === 'cold'
     const hue = cold ? 'suggestion' : 'claude'
-    const left = view ? Math.max(0, TTL_MIN - view.idleMin) : 0
+    const left = view ? Math.max(0, view.ttlMin - view.idleMin) : 0
     const price = view && mine ? usd(myCost(view, mine)) : null
     const cacheItem: Item | null = !view
       ? null
@@ -392,10 +419,11 @@ export const register: Register = (on, options) => {
 
     // Off a plan there are no windows to wait for: say what the session is instead.
     const replied = acct?.replied ?? false
-    const noWindows = list.length === 0 && (plan !== 'subscription' || replied)
+    const noWindows = allWindows.length === 0 && (plan !== 'subscription' || replied)
     const headItem = (): Item | null => {
-      if (list.length > 0) return null
+      if (allWindows.length > 0) return null
       if (!noWindows) {
+        if (!parts.week && !parts.fiveHour) return null
         return {
           key: 'wait',
           line: [{ text: 'Usage ', color: 'subtle' }, { text: 'shows after your first reply', color: 'inactive' }],
@@ -422,6 +450,13 @@ export const register: Register = (on, options) => {
     const head = headItem()
     const fits = (cells: number) => [...list.map(w => windowItem(w, cells)), ...(head ? [head] : []), ...(contextItem ? [contextItem] : []), ...(cacheItem ? [cacheItem] : [])]
 
+    // ---- Show only when it matters: a window under 25%, a cold cache or a nearly full context ----
+    if (onlyWhenItMatters) {
+      const lowWindow = list.some(w => 100 - w.percentUsed < MATTERS_AT)
+      const matters = lowWindow || cold || (ctxPct ?? 0) >= 85
+      if (!matters) return beneath ?? next(e)
+    }
+
     // ---- Minimal style: numbers only, in a fixed order (week, 5-hour, context, cache) ----
     if (style === 'minimal') {
       const bits: Part[] = []
@@ -429,7 +464,7 @@ export const register: Register = (on, options) => {
         const pct = Math.max(0, Math.round((100 - w.percentUsed) * 10) / 10)
         bits.push({ text: `${pct}%`, color: pct < EMPTY_AT ? 'error' : pct < LOW_AT ? 'warning' : undefined })
       }
-      if (list.length === 0 && noWindows) {
+      if (allWindows.length === 0 && noWindows) {
         if (plan === 'api' && typeof acct?.usd === 'number') bits.push({ text: usd(acct.usd) })
         else if (plan === 'other' && facts?.model) bits.push({ text: shortModel(facts.model) })
       }
@@ -438,11 +473,11 @@ export const register: Register = (on, options) => {
         bits.push({ text: cold ? 'cold' : 'warm', color: hue })
         bits.push({ text: cold ? ` ${price ?? view.idle}` : ` ${left}m`, color: 'subtle' })
       }
-      const parts: Part[] = bits.flatMap((b, i) => (i === 0 || b.text.startsWith(' ') ? [b] : [{ text: ' · ', color: 'subtle' }, b]))
+      const shown: Part[] = bits.flatMap((b, i) => (i === 0 || b.text.startsWith(' ') ? [b] : [{ text: ' · ', color: 'subtle' }, b])).map(tint)
       const own = (
         <Box key="ribbon" flexDirection="row" flexWrap="wrap" paddingX={1}>
-          {parts.length > 0
-            ? parts.map((p, i) => <Text key={`m-${i}`} color={p.color}>{p.text}</Text>)
+          {shown.length > 0
+            ? shown.map((p, i) => <Text key={`m-${i}`} color={p.color} bold={p.bold}>{p.text}</Text>)
             : <Text key="m-wait" color="inactive">…</Text>}
         </Box>
       )
@@ -474,9 +509,9 @@ export const register: Register = (on, options) => {
       rowWidth(full) <= room || rowWidth(narrow) <= room ? 'row' : blockWidth(full) <= room ? 'blocks' : 'tight'
     const items = kind === 'row' ? (rowWidth(full) <= room ? full : narrow) : kind === 'tight' ? narrow : full
 
-    const draw = (parts: Part[], key: string) => (
+    const draw = (line: Part[], key: string) => (
       <Box key={key} flexDirection="row" flexShrink={0}>
-        {parts.map((p, i) => (
+        {line.map(tint).map((p, i) => (
           <Text key={`${key}-${i}`} color={p.color} bold={p.bold} dimColor={p.dim}>{p.text}</Text>
         ))}
       </Box>

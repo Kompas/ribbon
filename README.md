@@ -44,15 +44,17 @@ Type `/ribbon` in any session for this legend.
 | `[ Details ]` | Desktop and VS Code: opens a card with the idle time, the cache size and the next-message price on each model. |
 | `[-]` at the far right | Claude Code's own control: it folds the whole band away. Click it again to bring the band back. |
 
-### Minimal style
+### Options
 
-Prefer numbers only? Open `/config`, find **ribbon · Style** and pick `minimal`. The band changes right away:
+Open `/config` and scroll to **ribbon**. Every change shows at once.
 
-```
-96% · 8% · warm 60m
-```
-
-The order is fixed: week, 5-hour (when your plan has one), context, cache. A window under 15% turns amber, under 5% red. When the cache is cold it shows the next message's price (`cold $4.78`). There is no Details card in this style.
+| Option | Choices | What it does |
+| --- | --- | --- |
+| Style | `full` · `minimal` | `minimal` is numbers only, `96% · 8% · warm 60m`, in a fixed order: week, 5-hour, context, cache. A cold cache shows the next message's price (`cold $4.78`). No Details card. |
+| Colours | `full` · `muted` · `off` | `muted` is all grey, in Claude Code's own greys, with colour only for a low window or a full context. `off` has no colour at all, warnings in bold. |
+| Show | `always` · `when it matters` | `when it matters` hides the band until a window drops under 25%, the cache goes cold, or the context passes 85%. |
+| Show the week / 5-hour window / context / cache | on · off | Leave out the parts you don't need. Only the context, for example. |
+| Cache length | `auto` · `5 minutes` · `1 hour` | `auto` is 1 hour on a Claude plan and 5 minutes on an API key. Set it by hand if yours differs. The 5-minute cache is also priced at its own write rate (1.25x input). |
 
 ### Not on a Claude plan?
 
@@ -90,7 +92,7 @@ The band measures itself before it picks a layout, so nothing gets clipped:
 - **No tokens spent.** The band reads Claude Code's own figures. On a plan it also asks the account's usage endpoint (the one `/usage` uses) at start, after a switch, and at most every 5 minutes. That request costs no tokens.
 - **The account check stays local.** To notice a switch, the band compares the account and organization ids in `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`). It never shows or sends them.
 - **Prices are estimates.** They come from the table in `hooks/cache-art.ts` (`MODELS`), not from your bill.
-- **The cache is assumed to last one hour**, as Claude Code uses on a plan. On an API key with the 5-minute cache, warm can show longer than it really is.
+- **The cache length is a guess you can correct.** On a plan Claude Code writes the 1-hour cache; on an API key the band assumes 5 minutes. Set **Cache length** in `/config` if yours differs.
 - **Subagents don't count.** Only your main chat resets the cache clock.
 - **Known notice:** if a security plugin runs before ribbon and doesn't pass `SessionStart` on, Claude Code prints `ribbon: its classic.SessionStart hook was skipped` ([#22](https://github.com/robonuggets/ribbon/issues/22)). Only the resumed-session cache estimate is lost; the rest works.
 
