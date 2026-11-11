@@ -54,6 +54,7 @@ Open `/config` and scroll to **ribbon**. Every change shows at once.
 | Colours | `full` · `muted` · `off` | `muted` is all grey, in Claude Code's own greys, with colour only for a low window or a full context. `off` has no colour at all, warnings in bold. |
 | Show | `always` · `when it matters` | `when it matters` hides the band until a window drops under 25%, the cache goes cold, or the context passes 85%. |
 | Show the dot bars | on · off | Off: `Week 96% left · resets in 6d 21h`, no dots. A low window colours the percentage instead. |
+| Show the model | `when not Claude` · `always` · `never` | `when not Claude` names a local model or a gateway's model (`Model qwen3-coder-30b`), and stays quiet for Claude's own. `always` names Claude models too (`Model opus-5-5`). `never` leaves it out. |
 | Show the week / 5-hour window / context / cache | on · off | Leave out the parts you don't need. Only the context, for example. |
 | Cache length | `auto` · `5 minutes` · `1 hour` | `auto` is 1 hour on a Claude plan and 5 minutes on an API key. Set it by hand if yours differs. The 5-minute cache is also priced at its own write rate (1.25x input). |
 
@@ -111,7 +112,7 @@ ribbon/
 │   ├── cache-art.ts        the cache card and robot drawings, the price table
 │   └── font.ts             Outfit, embedded so the drawings render anywhere
 ├── types/index.d.ts        the shape of what the band remembers
-└── tests/                  16 tests: layouts, plans, account switch, prices, cache
+└── tests/                  27 tests: layouts, plans, account switch, prices, cache
 ```
 
 ## Develop it

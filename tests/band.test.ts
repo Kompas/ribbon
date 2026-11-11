@@ -102,7 +102,7 @@ test('a local model never waits for limits: it shows the model and the context',
 
   await $.turn.complete(turn)
   const band = await $.ui.mount({ plugin: 'ribbon', surface: 'desktop', component: 'AbovePrompt', props: PROPS })
-  expect(await band.find({ text: ' qwen3-coder-30b' })).toBeDefined()
+  expect(await band.find({ text: 'qwen3-coder-30b' })).toBeDefined()
   expect(await band.find({ text: '25%' })).toBeDefined()
   // Its cache isn't Anthropic's hour: no cache, no card.
   expect(await band.find({ key: 'cache-fold' })).toBeUndefined()
@@ -296,4 +296,37 @@ test('show the dot bars off: the percentage without dots, a low window still col
     expect(low?.props.color).toBe('warning')
     await band.unmount()
   }
+})
+
+test('show the model: hidden for Claude by default, shown with always, gone with never', async ($, on) => {
+  await seed($, on, 60)
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(JSON.stringify(await band.find({ type: 'Box' }))).not.toContain('Model')
+  await band.unmount()
+})
+
+test('show the model always: a Claude model gets its name too', { options: { showModel: 'always' } }, async ($, on) => {
+  await seed($, on, 60)
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(await band.find({ text: 'opus-5-5' })).toBeDefined()
+  await band.unmount()
+})
+
+test('show the model never: a local model shows only its context', { options: { showModel: 'never' } }, async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  mock.env(on, { ANTHROPIC_BASE_URL: 'http://localhost:8000', HOME: '/home/me' })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 128000, tokens: 32000 }, rateLimits: [] } }))
+  on('session.authorize', () => ({ value: null }))
+  on('session.model', () => ({ value: 'qwen3-coder-30b' }))
+  on('turn.complete', () => ({ text: 'ok' }))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+  await $.turn.complete(turn)
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  const all = JSON.stringify(await band.find({ type: 'Box' }))
+  expect(all).not.toContain('qwen3')
+  expect(all).not.toContain('Model')
+  expect(await band.find({ text: '25%' })).toBeDefined()
+  await band.unmount()
 })

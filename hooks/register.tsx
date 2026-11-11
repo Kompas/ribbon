@@ -103,7 +103,8 @@ export const LEGEND = [
   'On an API key it shows the session\'s cost; on a cloud provider, gateway or local',
   'model it shows the model and the context only (no plan limits apply there).',
   'Options in /config, under ribbon: Style (full or minimal, numbers only), Colours (full, muted, off),',
-  'Show (always, or only when it matters), the dot bars, which parts to show, and the cache length.',
+  'Show (always, or only when it matters), the dot bars, which parts to show, the cache length,',
+  'and Show the model (when it isn\'t Claude, always, never).',
   'The [-] at the band\'s right is Claude Code\'s own: it folds the band away.',
 ].join('\n')
 
@@ -207,6 +208,8 @@ export const register: Register = (on, options) => {
   }
   // showDots: the dot bars beside each usage window.
   const showDots = options?.showDots !== false
+  // showModel: the model's name when it isn't a Claude model (a local model, a gateway), always, or never.
+  const showModel = options?.showModel === 'always' || options?.showModel === 'never' ? options.showModel : 'when not Claude'
   // cacheLength: auto (1 hour on a plan, 5 minutes on an API key), 5 minutes or 1 hour.
   const cacheMinutes = (plan: Plan): number =>
     options?.cacheLength === '5 minutes' ? 5 : options?.cacheLength === '1 hour' ? 60 : plan === 'api' ? 5 : 60
@@ -345,7 +348,9 @@ export const register: Register = (on, options) => {
     const acct = await read($, account)
     const plan: Plan = acct?.plan ?? 'subscription'
     // Before the first reply there are no cache facts yet, but the session already knows its model.
-    const modelName = facts?.model ?? (plan === 'other' ? await Promise.resolve($.session.model()).catch(() => null) : null)
+    const modelName = showModel === 'never' ? null : facts?.model ?? (await Promise.resolve($.session.model()).catch(() => null))
+    // A model the price table doesn't know isn't Claude: a local model or a gateway's own name.
+    const modelShown = modelName && (showModel === 'always' || familyOf(modelName) === null) ? shortModel(modelName) : null
     const ttlMin = cacheMinutes(plan)
     const view = parts.cache ? viewOf(facts, now, ttlMin) : null
     const columns = e.props.bodyColumns ?? e.viewport?.columns ?? 100
@@ -398,6 +403,14 @@ export const register: Register = (on, options) => {
             ],
           }
 
+    const modelItem: Item | null = modelShown
+      ? {
+          key: 'model',
+          line: [{ text: 'Model ', color: 'subtle' }, { text: modelShown }],
+          block: [[{ text: 'Model', color: 'subtle' }], [{ text: modelShown }]],
+        }
+      : null
+
     const mine = view ? mineModel(view) : undefined
     const cold = view?.mode === 'cold'
     const hue = cold ? 'suggestion' : 'claude'
@@ -441,17 +454,13 @@ export const register: Register = (on, options) => {
           block: [[{ text: 'API key', color: 'subtle' }], ...(typeof cost === 'number' ? [[{ text: `${usd(cost)} so far`,  }]] : [])],
         }
       }
-      const model = shortModel(modelName)
-      const label = plan === 'other' ? 'Model' : 'No plan limits'
-      return {
-        key: 'model',
-        line: [{ text: label, color: 'subtle' }, ...(model && plan === 'other' ? [{ text: ` ${model}`,  }] : [])],
-        block: [[{ text: label, color: 'subtle' }], ...(model && plan === 'other' ? [[{ text: model,  }]] : [])],
-      }
+      // A cloud provider, gateway or local model: the model item says what it is, if shown.
+      if (plan === 'other') return null
+      return { key: 'none', line: [{ text: 'No plan limits', color: 'subtle' }], block: [[{ text: 'No plan limits', color: 'subtle' }]] }
     }
 
     const head = headItem()
-    const fits = (cells: number) => [...list.map(w => windowItem(w, cells)), ...(head ? [head] : []), ...(contextItem ? [contextItem] : []), ...(cacheItem ? [cacheItem] : [])]
+    const fits = (cells: number) => [...(modelItem ? [modelItem] : []), ...list.map(w => windowItem(w, cells)), ...(head ? [head] : []), ...(contextItem ? [contextItem] : []), ...(cacheItem ? [cacheItem] : [])]
 
     // ---- Show only when it matters: a window under 25%, a cold cache or a nearly full context ----
     if (onlyWhenItMatters) {
@@ -462,14 +471,13 @@ export const register: Register = (on, options) => {
 
     // ---- Minimal style: numbers only, in a fixed order (week, 5-hour, context, cache) ----
     if (style === 'minimal') {
-      const bits: Part[] = []
+      const bits: Part[] = modelShown ? [{ text: modelShown }] : []
       for (const w of list) {
         const pct = Math.max(0, Math.round((100 - w.percentUsed) * 10) / 10)
         bits.push({ text: `${pct}%`, color: pct < EMPTY_AT ? 'error' : pct < LOW_AT ? 'warning' : undefined })
       }
       if (allWindows.length === 0 && noWindows) {
         if (plan === 'api' && typeof acct?.usd === 'number') bits.push({ text: usd(acct.usd) })
-        else if (plan === 'other' && modelName) bits.push({ text: shortModel(modelName) })
       }
       if (ctxPct !== null) bits.push({ text: `${ctxPct}%`, color: ctxPct >= 85 ? 'warning' : undefined })
       if (view) {

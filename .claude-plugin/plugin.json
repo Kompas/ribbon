@@ -1,6 +1,6 @@
 {
   "name": "ribbon",
-  "version": "2.3.1",
+  "version": "2.4.0",
   "description": "A quiet band above the prompt: how much of your week and 5-hour usage is left, the context, and whether the prompt cache is warm or cold. Follows your theme, refreshes on account switch, and works with API keys and local models.",
   "author": {
     "name": "Kompas",
@@ -57,6 +57,17 @@
       "title": "Show the dot bars",
       "description": "The ●●●●○○ bars beside the week and 5-hour windows. Off: just the percentage.",
       "default": true
+    },
+    "showModel": {
+      "type": "string",
+      "title": "Show the model",
+      "description": "The model's name in the band. when not Claude: only for a local model, a gateway or another non-Claude model. always: also for Claude models. never: not at all.",
+      "options": [
+        "when not Claude",
+        "always",
+        "never"
+      ],
+      "default": "when not Claude"
     },
     "showWeek": {
       "type": "boolean",
