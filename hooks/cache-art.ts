@@ -6,32 +6,51 @@ import { SANS } from './font'
 export type Mode = 'warm' | 'cold'
 export type Kind = 'wide' | 'stacked' | 'tight'
 
-// The band's own colours, measured from the app.
-export const BG = '#24221c'
-export const TEXT = '#e8e2d2'
-export const MUTED = '#8d8775'
-export const EMPTY = '#4a463b'
-export const LINE = '#36332b'
-export const ORANGE = '#ff6b1a'
-export const YELLOW = '#f5a623'
+// The drawings' colours, in the dark theme. Each has a light counterpart in
+// LIGHT below, swapped in by the drawing's own stylesheet when the app is light,
+// so one drawing suits both themes. The band's text uses theme keys instead.
+// Toned to Claude's own coral rather than a loud orange.
+export const TEXT = '#e8e6dc'
+export const MUTED = '#9a978e'
+export const EMPTY = '#3d3d3a'
+export const LINE = '#353532'
 
-// The cache's two states in a muted shade: desaturated so they sit
-// beside the band's own orange and yellow.
-export const HUE: Record<Mode, string> = { warm: '#cc6363', cold: '#6aaabd' }
+// The cache's two states: warm in Claude's coral, cold in a quiet slate blue.
+export const HUE: Record<Mode, string> = { warm: '#d97757', cold: '#7fa3c0' }
 /** Text on a filled chip. */
-export const INK = '#1c1a16'
+export const INK = '#1f1e1d'
 export const WORD: Record<Mode, string> = { warm: 'WARM', cold: 'COLD' }
+
+/** Each dark colour above and the colour it becomes on a light theme. */
+export const LIGHT: Record<string, string> = {
+  [TEXT]: '#1f1e1d',
+  [MUTED]: '#6f6d66',
+  [EMPTY]: '#dedcd1',
+  [LINE]: '#e6e4da',
+  [HUE.warm]: '#c6613f',
+  [HUE.cold]: '#4f7ea8',
+  [INK]: '#ffffff',
+}
+
+const lightSheet =
+  '@media (prefers-color-scheme: light){' +
+  Object.entries(LIGHT)
+    .map(([d, l]) => `[fill="${d}"]{fill:${l}}[stroke="${d}"]{stroke:${l}}`)
+    .join('') +
+  '}'
 
 /** The prompt cache lives an hour after the last request that read or wrote it. */
 export const TTL_MIN = 60
 export const TTL_MS = TTL_MIN * 60 * 1000
 
-/** One row needs about 78 columns for two windows; under that, each window stacks. */
-export const WIDE_AT = 78
 /** Under this the dot bars shrink and the cache gets its own row. */
 export const TIGHT_AT = 42
+/** The one-row card's width: 640 px of idle and size, then four price columns. */
+export const WIDE_CARD_PX = 1007
 
-export const kindOf = (columns: number): Kind => (columns >= WIDE_AT ? 'wide' : columns >= TIGHT_AT ? 'stacked' : 'tight')
+/** Which card layout fits a band this many pixels wide. */
+export const cardKindOf = (px: number, columns: number): Kind =>
+  px >= WIDE_CARD_PX ? 'wide' : columns >= TIGHT_AT ? 'stacked' : 'tight'
 
 /**
  * The band's width in CSS pixels for a column count: the engine keeps 5 cells
@@ -41,26 +60,44 @@ export const kindOf = (columns: number): Kind => (columns >= WIDE_AT ? 'wide' : 
 export const bandPx = (columns: number): number => (columns + 5) * 12
 
 // $ per million tokens: input, and the cache read. The 1-hour cache write is 2 times
-// input. Haiku 5.5 is $0.10 up to 100K tokens and $0.50 above; long sessions use the
-// higher rate.
-export type Model = { id: string; NAME: string; input: number; read: number }
+// input. A row matches a model id that contains any of its `ids`; the first match
+// wins, so the newer, cheaper versions come before their family's catch-all.
+// Haiku 5.5 is cheaper up to 100K tokens of prompt (`short`).
+// Checked against Anthropic's price list on 2026-11-11.
+export type Rate = { input: number; read: number }
+export type Model = Rate & { id: string; NAME: string; ids: string[]; short?: Rate & { upTo: number }; card?: boolean }
 export const MODELS: Model[] = [
-  { id: 'fable', NAME: 'FABLE', input: 10, read: 0.25 },
-  { id: 'opus', NAME: 'OPUS', input: 4, read: 0.2 },
-  { id: 'sonnet', NAME: 'SONNET', input: 2, read: 0.2 },
-  { id: 'haiku', NAME: 'HAIKU', input: 0.5, read: 0.05 },
+  { id: 'fable', NAME: 'FABLE', ids: ['fable-5-2', 'mythos-5-2'], input: 8, read: 0.2, card: true },
+  { id: 'fable-old', NAME: 'FABLE', ids: ['fable', 'mythos'], input: 10, read: 0.25 },
+  { id: 'opus', NAME: 'OPUS', ids: ['opus-5-5'], input: 4, read: 0.2, card: true },
+  { id: 'opus-old', NAME: 'OPUS', ids: ['opus'], input: 5, read: 0.5 },
+  { id: 'sonnet', NAME: 'SONNET', ids: ['sonnet-5-5'], input: 2, read: 0.1, card: true },
+  { id: 'sonnet-5', NAME: 'SONNET', ids: ['sonnet-5'], input: 2, read: 0.2 },
+  { id: 'sonnet-old', NAME: 'SONNET', ids: ['sonnet'], input: 3, read: 0.3 },
+  { id: 'haiku', NAME: 'HAIKU', ids: ['haiku-5-5'], input: 0.5, read: 0.05, short: { upTo: 100_000, input: 0.1, read: 0.01 }, card: true },
+  { id: 'haiku-old', NAME: 'HAIKU', ids: ['haiku'], input: 1, read: 0.1 },
 ]
+/** The four columns of the card: the current version of each family. */
+export const CARD_MODELS = MODELS.filter(m => m.card)
 
-/** Which row of MODELS a model id belongs to, or null for one the card doesn't price. */
+/**
+ * Which row of MODELS a model id belongs to, or null for one the band doesn't
+ * price: a local model, a gateway's own name. Bare aliases (`opus`, `sonnet`)
+ * resolve to the current version.
+ */
 export const familyOf = (model: string | null | undefined): string | null => {
   const m = (model ?? '').toLowerCase()
-  return MODELS.find(x => m.includes(x.id))?.id ?? null
+  if (!m) return null
+  const bare = CARD_MODELS.find(x => m === x.id || m === `${x.id}[1m]`)
+  if (bare) return bare.id
+  return MODELS.find(x => x.ids.some(id => m.includes(id)))?.id ?? null
 }
 
-export const coldCost = (m: Model, tokens: number): number => (tokens / 1e6) * m.input * 2
-export const warmCost = (m: Model, tokens: number): number => (tokens / 1e6) * m.read
+const rateOf = (m: Model, tokens: number): Rate => (m.short && tokens <= m.short.upTo ? m.short : m)
+export const coldCost = (m: Model, tokens: number): number => (tokens / 1e6) * rateOf(m, tokens).input * 2
+export const warmCost = (m: Model, tokens: number): number => (tokens / 1e6) * rateOf(m, tokens).read
 export const costOf = (m: Model, mode: Mode, tokens: number): number => (mode === 'cold' ? coldCost(m, tokens) : warmCost(m, tokens))
-export const usd = (n: number): string => '$' + n.toFixed(2)
+export const usd = (n: number): string => (n > 0 && n < 0.01 ? '<$0.01' : '$' + n.toFixed(2))
 export const tok = (n: number): string => (n >= 1e6 ? `${Number((n / 1e6).toFixed(1))}M` : `${Math.round(n / 1000)}k`)
 
 /** Idle time the way the card writes it: 18m, 2h 5m, 3d 9h. */
@@ -85,16 +122,25 @@ export type CacheView = {
   window: number
   /** This session's MODELS id, or null when the model isn't priced. */
   mine: string | null
+  /** Claude Code's own re-cache price for this session's model, after a resume. */
+  usd?: number
 }
 
 export const mineModel = (v: CacheView): Model | undefined => MODELS.find(m => m.id === v.mine)
 
+/** What the session's own next message costs: Claude Code's estimate while cold, when it gave one. */
+export const myCost = (v: CacheView, m: Model): number =>
+  v.mode === 'cold' && typeof v.usd === 'number' ? v.usd : costOf(m, v.mode, v.tokens)
+
 // ---------- SVG helpers ----------
 export const svgDoc = (w: number, h: number, body: string, font: boolean): string =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+  '<style>' +
   (font
-    ? `<style>@font-face{font-family:RS;font-weight:100 900;src:url(data:font/woff2;base64,${SANS}) format('woff2')} text{font-family:RS,system-ui,'Segoe UI',sans-serif}</style>`
+    ? `@font-face{font-family:RS;font-weight:100 900;src:url(data:font/woff2;base64,${SANS}) format('woff2')} text{font-family:RS,system-ui,'Segoe UI',sans-serif}`
     : '') +
+  lightSheet +
+  '</style>' +
   body +
   '</svg>'
 
@@ -282,16 +328,17 @@ export const cardSvg = (v: CacheView, kind: Kind, W: number): { source: string; 
       ? { lab: 24, base: 100, rows: 6, step: 7, chip: 58, price: 88, name: 102 }
       : { lab: 30, base: 116, rows: 8, step: 8, chip: 70, price: 104, name: 120 }
     let g = t(x, y + k.lab, cold ? 'NEXT MESSAGE COSTS' : 'NEXT MESSAGE COSTS, CACHED', { ls: 1.4 })
-    const top = Math.max(...MODELS.map(m => coldCost(m, v.tokens)))
-    MODELS.forEach((m, i) => {
-      const mine = m.id === v.mine
+    const top = Math.max(...CARD_MODELS.map(m => coldCost(m, v.tokens)))
+    const me = mineModel(v)
+    CARD_MODELS.forEach((m, i) => {
+      const mine = me?.NAME === m.NAME
       const n = top > 0 ? Math.max(1, Math.round((costOf(m, mode, v.tokens) / top) * k.rows)) : 1
       const bx = x + i * colW
       for (let r = 0; r < k.rows; r++)
         for (let c = 0; c < 3; c++)
           g += `<circle cx="${bx + 3 + c * 8}" cy="${y + k.base - r * k.step}" r="2.8" fill="${r < n ? (mine ? HUEM : MUTED) : EMPTY}"/>`
       if (mine) g += chipShapes(bx + 30, y + k.chip, 'YOU', HUEM, 10, 0.8).svg
-      g += t(bx + 30, y + k.price, usd(costOf(m, mode, v.tokens)), { size: 17, w: mine ? 700 : 500, fill: mine ? TEXT : MUTED })
+      g += t(bx + 30, y + k.price, usd(mine && me ? myCost(v, me) : costOf(m, mode, v.tokens)), { size: 17, w: mine ? 700 : 500, fill: mine ? TEXT : MUTED })
       g += t(bx + 30, y + k.name, m.NAME, { size: 11, w: 700, fill: mine ? HUEM : MUTED, ls: 0.8 })
     })
     return g
@@ -324,7 +371,7 @@ export const cardSvg = (v: CacheView, kind: Kind, W: number): { source: string; 
       zoneCost(13, 182, (W - 26) / 4, { compact: true })
   }
   const h = H + CARD_TOP
-  const body = `<rect width="${W}" height="${h}" fill="${BG}"/><g transform="translate(0 ${CARD_TOP})">` + hline(0) + g + '</g>'
+  const body = `<g transform="translate(0 ${CARD_TOP})">` + hline(0) + g + '</g>'
   const alt = cold
     ? `Cache cold. Idle ${v.idle}. Next message re-caches ${tok(v.tokens)} tokens.`
     : `Cache warm. Goes cold in ${Math.max(0, TTL_MIN - v.idleMin)} minutes. ${tok(v.tokens)} tokens cached.`

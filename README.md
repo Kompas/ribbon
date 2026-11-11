@@ -1,90 +1,88 @@
-<p align="center">
-  <img src="assets/banner.png" alt="ribbon" width="100%">
-</p>
-
 # ribbon
 
-A free mod for Claude Code. It adds a slim band above your prompt that shows:
+A quiet band above your Claude Code prompt:
 
-- **How much usage you have left** in your 7-day and 5-hour windows, and when each one resets.
-- **Whether your prompt cache is warm or cold**, and what your next message will cost.
+```
+Week ●●●●●●●○○○ 71% left · resets in 3d 9h   5-hour ●●●●●●●●●○ 92% left · resets in 2h 10m   Context 34%   Cache warm · cold in 56m   [ Details ]
+```
 
-It installs once and is there in every session after that. No commands to learn.
+- **How much usage you have left** this week and in the 5-hour window, and when each one refills.
+- **How full the context is.**
+- **Whether the prompt cache is warm or cold**, and what your next message costs.
 
-<p align="center">
-  <img src="assets/slim-warm.png" alt="ribbon, one slim row: 7D 41% left, 5H 96% left, cache warm with 53 minutes left" width="100%">
-</p>
-
-<p align="center">
-  <img src="assets/slim-cold.png" alt="ribbon, one slim row: 7D 45% left, 5H 89% left, cache cold for 12h 45m, next message $4.78" width="100%">
-</p>
-
-One row. That's the whole footprint.
+This is a fork of [robonuggets/ribbon](https://github.com/robonuggets/ribbon) by Jay E. The idea and the cache card are his. This fork fixes the things that got in the way in daily use. See [What changed](#what-changed-from-the-original).
 
 ## Install
 
-The easy way: send this link to your agent and say "install this".
+In a terminal:
 
 ```
-https://github.com/robonuggets/ribbon
+claude plugin install ribbon --marketplace Kompas/ribbon
 ```
 
-Your agent runs one command. The band shows up in your next session.
+Or inside Claude Code: `/plugin install ribbon --marketplace Kompas/ribbon`, answer `y` to *Add marketplace?*, pick the **user** scope.
 
-### For agents
+Start a new session. The band shows above the prompt.
 
-If you are an agent and your user asked you to install this, run this in a shell:
-
-```
-claude plugin install ribbon --marketplace robonuggets/ribbon
-```
-
-It installs for the user (all their projects) and adds the marketplace on its own. Then tell your user: "Ribbon is installed. Start a new session to see the band above your prompt." Do not edit their settings file by hand.
-
-### By hand
-
-In a Claude Code terminal session, type:
+**Coming from the original?** Remove it first, or you get two bands:
 
 ```
-/plugin install ribbon --marketplace robonuggets/ribbon
+claude plugin uninstall ribbon@robonuggets
 ```
-
-1. Type `y` when it asks `Add marketplace?`.
-2. Pick the **user** scope with Enter.
-3. Start a new session.
 
 ## What you see
 
-### Usage left
+Type `/ribbon` in any session for this legend.
 
-- **7D** (orange) is your 7-day window. **5H** (yellow) is your 5-hour window.
-- Each dot bar shows what is **left**, not what is used.
-- Under each one is when it resets, for example `resets 3d 9h`.
-- If a window drops under 15%, a bold **LOW** shows next to it.
+| Part | Meaning |
+| --- | --- |
+| `Week ●●●●●●●○○○ 71% left · resets in 3d 9h` | How much of your plan's 7-day allowance is left, and when it refills. The dots show what is **left**. |
+| `5-hour ●●●●●●●●●○ 92% left · resets in 2h 10m` | The same for the rolling 5-hour window. Under 15% the dots turn amber and **LOW** shows; under 5% they turn red. |
+| `Context 34%` | How full this conversation's context window is. Amber from 85%. |
+| `Cache warm · cold in 56m` | Your chat is in Anthropic's prompt cache, so the next message is cheap. The cache lasts an hour after your last message. |
+| `Cache cold 3h 5m · next msg $4.78` | The hour has passed. The next message re-sends the whole chat at full price. |
+| `[ Details ]` | Desktop and VS Code: opens a card with the idle time, the cache size and the next-message price on each model. |
+| `[-]` at the far right | Claude Code's own control: it folds the whole band away. Click it again to bring the band back. |
 
-### The prompt cache
+### Not on a Claude plan?
 
-After your first reply, the band also tracks the prompt cache. The cache keeps your chat cheap to continue for one hour after your last message.
+The band adapts instead of waiting forever for limits that never come:
 
-- **WARM** (red, the robot bobs): the cache is live. It shows the minutes left and what your next message costs.
-- **COLD** (blue, the robot is frozen): the hour has passed. Your next message re-sends the whole chat, so it costs more. It shows the price first.
-
-Click **Show** to open the cache card, and **Hide** to fold it. Warm starts folded. Cold starts open, so you see the price before you send.
-
-The card shows how long you've been idle, how many tokens are in the cache, and what the next message costs on each model. Your model is marked **YOU**. See [Up close](#up-close) below.
+- **API key:** `API key · session $1.23` instead of the plan windows, plus context and cache.
+- **Cloud provider, gateway or local model** (`ANTHROPIC_BASE_URL` pointing elsewhere, Bedrock, Vertex, Foundry): `Model qwen3-coder-30b` plus context. No cache line, because a local model's cache isn't Anthropic's one-hour cache.
 
 ### Fits any width
 
-- **Wide:** everything on one row.
-- **Half width:** each window stacks into a small block.
-- **Narrow:** the cache moves to its own row.
-- **Terminal:** the same facts as plain text.
+The band measures itself before it picks a layout, so nothing gets clipped:
+
+1. One row with full dot bars.
+2. One row with short bars.
+3. One small block per item.
+4. Short-bar blocks that wrap onto more lines.
+
+## What changed from the original
+
+| Problem | Fix |
+| --- | --- |
+| After `/login` to another account the band kept the old usage until a new session. | The band watches the signed-in account. After a switch it clears the old figures and the old cache, then loads the new account's usage within 30 seconds, whichever session did the `/login`. |
+| `USAGE · waiting for the first reply` on a new session. | On a plan, usage loads at session start from the same endpoint `/usage` reads. Nothing waits for a reply. |
+| Stuck on "waiting for the first reply" with an API key or a local model. | Plan detection: API keys show session cost, local and cloud models show the model and the context. |
+| `7D`, `5H`, `WARM` were hard to read at a glance. | Plain labels (`Week`, `5-hour`, `resets in`, `cold in`, `next msg`) and a `/ribbon` legend. |
+| Loud orange and yellow on a fixed dark slab; dark even in a light theme ([#3](https://github.com/robonuggets/ribbon/issues/3), [#14](https://github.com/robonuggets/ribbon/issues/14)). | The band uses your theme's colours (Claude's own coral, its amber and red for warnings), so it follows light and dark. The card swaps to a light palette by itself. |
+| Chip and Show button clipped between ~78 and ~112 columns ([#3](https://github.com/robonuggets/ribbon/issues/3), [#14](https://github.com/robonuggets/ribbon/issues/14)). | Layout chosen by measuring the real text. The button sits beside the band, never on it. |
+| Sonnet 5.5 cache reads priced at $0.20, Haiku 5.5 always at the long-prompt rate ([#2](https://github.com/robonuggets/ribbon/pull/2), [#8](https://github.com/robonuggets/ribbon/issues/8)). | Prices checked against Anthropic's list on 2026-11-11: Fable 5.2 $8 / $0.20, Opus 5.5 $4 / $0.20, Sonnet 5.5 $2 / $0.10, Haiku 5.5 $0.10 / $0.01 up to 100K tokens. Older versions keep their own rates. |
+| A resume priced re-caching from the table even when Claude Code knew better ([#7](https://github.com/robonuggets/ribbon/pull/7)). | Uses Claude Code's own `estimated_cache_write_usd` while cold. |
+| Another mod's band disappeared when ribbon drew first ([#4](https://github.com/robonuggets/ribbon/pull/4)). | The other band stays and draws above ribbon. |
+| Desktop app hides the context gauge ([#17](https://github.com/robonuggets/ribbon/issues/17)). | Context is part of the band. |
 
 ## Good to know
 
-- **It costs nothing to run.** It reads the app's own numbers and draws them. It never calls a model.
-- **Prices are estimates.** They come from a price table in `hooks/cache-art.ts` (`MODELS`), not from your bill. If prices change, edit that table.
+- **No tokens spent.** The band reads Claude Code's own figures. On a plan it also asks the account's usage endpoint (the one `/usage` uses) at start, after a switch, and at most every 5 minutes. That request costs no tokens.
+- **The account check stays local.** To notice a switch, the band compares the account and organization ids in `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`). It never shows or sends them.
+- **Prices are estimates.** They come from the table in `hooks/cache-art.ts` (`MODELS`), not from your bill.
+- **The cache is assumed to last one hour**, as Claude Code uses on a plan. On an API key with the 5-minute cache, warm can show longer than it really is.
 - **Subagents don't count.** Only your main chat resets the cache clock.
+- **Known notice:** if a security plugin runs before ribbon and doesn't pass `SessionStart` on, Claude Code prints `ribbon: its classic.SessionStart hook was skipped` ([#22](https://github.com/robonuggets/ribbon/issues/22)). Only the resumed-session cache estimate is lost; the rest works.
 
 ## What is inside
 
@@ -95,58 +93,30 @@ ribbon/
 │   └── marketplace.json    makes this repo installable
 ├── hooks/
 │   ├── hooks.json          points to the module
-│   ├── register.tsx        the band: usage, cache tracking, layout
+│   ├── register.tsx        the band: usage, context, cache, account watch, layout
+│   ├── account.ts          plan detection, the usage endpoint, the account fingerprint
 │   ├── cache-art.ts        the cache card and robot drawings, the price table
 │   └── font.ts             Outfit, embedded so the drawings render anywhere
 ├── types/index.d.ts        the shape of what the band remembers
-├── tests/                  7 tests: layouts, warm and cold, terminal, cleared sessions
-└── assets/                 banner, screenshots, hex icon
+└── tests/                  16 tests: layouts, plans, account switch, prices, cache
+```
+
+## Develop it
+
+```
+claude --plugin-dir ./ribbon      # load without installing
+claude plugin test ./ribbon       # run the tests
+claude plugin validate ./ribbon   # check what the engine will accept
 ```
 
 ## Remove it
 
 ```
-claude plugin uninstall ribbon
+claude plugin uninstall ribbon@kompas
 ```
-
-## Develop it
-
-Load the folder without installing it:
-
-```
-claude --plugin-dir ./ribbon
-```
-
-Run the tests:
-
-```
-claude plugin test ./ribbon
-```
-
-## Up close
-
-Click **Show** and the band opens into the cache card.
-
-**Warm.** The cache is live. Your next message is cheap.
-
-<p align="center">
-  <img src="assets/detail-warm.png" alt="Warm cache card: 6m idle, 245k tokens in cache, next message $0.05 on Opus" width="100%">
-</p>
-
-**Cold.** The hour has passed. Your next message re-sends the whole chat, so it costs more.
-
-<p align="center">
-  <img src="assets/detail-cold.png" alt="Cold cache card: 16h 8m idle, 243k tokens to re-cache, next message $1.94 on Opus" width="100%">
-</p>
 
 ## License
 
-[MIT](LICENSE).
+[MIT](LICENSE), like the original. The original is © Jay E | RoboNuggets.
 
 The embedded font is [Outfit](https://github.com/Outfitio/Outfit-Fonts), under the SIL Open Font License 1.1.
-
-Made by Jay E from RoboLabs. Learn more at [RoboNuggets](https://robonuggets.com).
-
-<p align="center">
-  <img src="assets/hex.svg" alt="RoboNuggets hex mark" width="48">
-</p>

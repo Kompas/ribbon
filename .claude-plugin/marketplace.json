@@ -1,11 +1,11 @@
 {
-  "name": "robonuggets",
-  "owner": { "name": "Jay E", "url": "https://robonuggets.com" },
+  "name": "kompas",
+  "owner": { "name": "Kompas", "url": "https://github.com/Kompas" },
   "plugins": [
     {
       "name": "ribbon",
       "source": "./",
-      "description": "A slim band above the prompt: usage left, reset times, and whether the prompt cache is warm or cold with what the next message costs."
+      "description": "A quiet band above the prompt: usage left, context, and whether the prompt cache is warm or cold. A fork of robonuggets/ribbon."
     }
   ]
 }
