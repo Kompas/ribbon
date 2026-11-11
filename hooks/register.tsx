@@ -344,6 +344,8 @@ export const register: Register = (on, options) => {
     const facts = await read($, cache)
     const acct = await read($, account)
     const plan: Plan = acct?.plan ?? 'subscription'
+    // Before the first reply there are no cache facts yet, but the session already knows its model.
+    const modelName = facts?.model ?? (plan === 'other' ? await Promise.resolve($.session.model()).catch(() => null) : null)
     const ttlMin = cacheMinutes(plan)
     const view = parts.cache ? viewOf(facts, now, ttlMin) : null
     const columns = e.props.bodyColumns ?? e.viewport?.columns ?? 100
@@ -439,7 +441,7 @@ export const register: Register = (on, options) => {
           block: [[{ text: 'API key', color: 'subtle' }], ...(typeof cost === 'number' ? [[{ text: `${usd(cost)} so far`,  }]] : [])],
         }
       }
-      const model = shortModel(facts?.model ?? null)
+      const model = shortModel(modelName)
       const label = plan === 'other' ? 'Model' : 'No plan limits'
       return {
         key: 'model',
@@ -467,7 +469,7 @@ export const register: Register = (on, options) => {
       }
       if (allWindows.length === 0 && noWindows) {
         if (plan === 'api' && typeof acct?.usd === 'number') bits.push({ text: usd(acct.usd) })
-        else if (plan === 'other' && facts?.model) bits.push({ text: shortModel(facts.model) })
+        else if (plan === 'other' && modelName) bits.push({ text: shortModel(modelName) })
       }
       if (ctxPct !== null) bits.push({ text: `${ctxPct}%`, color: ctxPct >= 85 ? 'warning' : undefined })
       if (view) {
