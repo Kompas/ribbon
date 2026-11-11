@@ -12,6 +12,8 @@ Week ●●●●●●●○○○ 71% left · resets in 3d 9h   5-hour ●●�
 
 This is a fork of [robonuggets/ribbon](https://github.com/robonuggets/ribbon) by Jay E. The idea and the cache card are his. This fork fixes the things that got in the way in daily use. See [What changed](#what-changed-from-the-original).
 
+Why I forked it, with screenshots of each look: [My usage band finally knows who I am](https://blog.hagebols.com/posts/usage-band-knows-who-i-am/).
+
 ## Install
 
 In a terminal:
