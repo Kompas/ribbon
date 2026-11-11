@@ -1,11 +1,35 @@
 {
   "name": "ribbon",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "A quiet band above the prompt: how much of your week and 5-hour usage is left, the context, and whether the prompt cache is warm or cold. Follows your theme, refreshes on account switch, and works with API keys and local models.",
-  "author": { "name": "Kompas", "url": "https://github.com/Kompas" },
+  "author": {
+    "name": "Kompas",
+    "url": "https://github.com/Kompas"
+  },
   "homepage": "https://github.com/Kompas/ribbon",
   "repository": "https://github.com/Kompas/ribbon",
   "license": "MIT",
-  "keywords": ["usage", "rate-limit", "prompt-cache", "context", "cost", "status", "mod", "claude-code"],
-  "types": "./types/index.d.ts"
+  "keywords": [
+    "usage",
+    "rate-limit",
+    "prompt-cache",
+    "context",
+    "cost",
+    "status",
+    "mod",
+    "claude-code"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "style": {
+      "type": "string",
+      "title": "Style",
+      "description": "full: labels, dot bars and reset times. minimal: numbers only, like 96% \u00b7 8% \u00b7 warm 60m (week, 5-hour, context, cache).",
+      "options": [
+        "full",
+        "minimal"
+      ],
+      "default": "full"
+    }
+  }
 }

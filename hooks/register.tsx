@@ -99,6 +99,8 @@ export const LEGEND = [
   '',
   'On an API key it shows the session\'s cost; on a cloud provider, gateway or local',
   'model it shows the model and the context only (no plan limits apply there).',
+  'Prefer numbers only? /config, ribbon, Style: minimal shows week, 5-hour, context and cache',
+  'as 96% · 8% · warm 60m.',
   'The [-] at the band\'s right is Claude Code\'s own: it folds the band away.',
 ].join('\n')
 
@@ -186,7 +188,10 @@ const checkAccount = async ($: EngineInterface, force = false): Promise<void> =>
 }
 
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  // full: labels, dot bars, reset times. minimal: numbers only. Set in /config.
+  const style = options?.style === 'minimal' ? 'minimal' : 'full'
+
   on('session.start', async ($, e, next) => {
     const r = await next(e)
     // Each step on its own: a band that fails to seed one part still draws the rest.
@@ -416,6 +421,38 @@ export const register: Register = on => {
 
     const head = headItem()
     const fits = (cells: number) => [...list.map(w => windowItem(w, cells)), ...(head ? [head] : []), ...(contextItem ? [contextItem] : []), ...(cacheItem ? [cacheItem] : [])]
+
+    // ---- Minimal style: numbers only, in a fixed order (week, 5-hour, context, cache) ----
+    if (style === 'minimal') {
+      const bits: Part[] = []
+      for (const w of list) {
+        const pct = Math.max(0, Math.round((100 - w.percentUsed) * 10) / 10)
+        bits.push({ text: `${pct}%`, color: pct < EMPTY_AT ? 'error' : pct < LOW_AT ? 'warning' : undefined })
+      }
+      if (list.length === 0 && noWindows) {
+        if (plan === 'api' && typeof acct?.usd === 'number') bits.push({ text: usd(acct.usd) })
+        else if (plan === 'other' && facts?.model) bits.push({ text: shortModel(facts.model) })
+      }
+      if (ctxPct !== null) bits.push({ text: `${ctxPct}%`, color: ctxPct >= 85 ? 'warning' : undefined })
+      if (view) {
+        bits.push({ text: cold ? 'cold' : 'warm', color: hue })
+        bits.push({ text: cold ? ` ${price ?? view.idle}` : ` ${left}m`, color: 'subtle' })
+      }
+      const parts: Part[] = bits.flatMap((b, i) => (i === 0 || b.text.startsWith(' ') ? [b] : [{ text: ' · ', color: 'subtle' }, b]))
+      const own = (
+        <Box key="ribbon" flexDirection="row" flexWrap="wrap" paddingX={1}>
+          {parts.length > 0
+            ? parts.map((p, i) => <Text key={`m-${i}`} color={p.color}>{p.text}</Text>)
+            : <Text key="m-wait" color="inactive">…</Text>}
+        </Box>
+      )
+      return above ? (
+        <Box flexDirection="column">
+          {above}
+          {own}
+        </Box>
+      ) : own
+    }
 
     // ---- Details / Hide: the cache card, a drawing, so not on the terminal ----
     const stored = await read($, fold)

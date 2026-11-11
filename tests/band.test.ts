@@ -184,3 +184,43 @@ test("another mod's band beneath ribbon still draws, above ribbon's", async ($, 
   expect(all.indexOf('OTHER BAND')).toBeLessThan(all.indexOf('Week'))
   await band.unmount()
 })
+
+test('minimal style shows numbers only: week, 5-hour, context, cache', { options: { style: 'minimal' } }, async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 200000 }, rateLimits: WINDOWS } }))
+  on('classic.SessionStart', () => ({}))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+  await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: 18 * 60, context_tokens: 16000, model: 'claude-opus-5-5' })
+
+  for (const surface of ['terminal', 'desktop'] as const) {
+    const band = await $.ui.mount({ plugin: 'ribbon', surface, component: 'AbovePrompt', props: PROPS })
+    const all = JSON.stringify(await band.find({ type: 'Box' }))
+    for (const t of ['87.5%', '42%', '8%', 'warm', ' 42m']) expect(await band.find({ text: t })).toBeDefined()
+    expect(all.indexOf('87.5%')).toBeLessThan(all.indexOf('42%'))
+    // No labels, no dot bars, no Details button.
+    expect(all).not.toContain('Week')
+    expect(all).not.toContain('●')
+    expect(await band.find({ key: 'cache-fold' })).toBeUndefined()
+    await band.unmount()
+  }
+})
+
+test('minimal style on a local model shows the model and the context', { options: { style: 'minimal' } }, async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  mock.env(on, { ANTHROPIC_BASE_URL: 'http://localhost:8000', HOME: '/home/me' })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 128000, tokens: 32000 }, rateLimits: [] } }))
+  on('session.authorize', () => ({ value: null }))
+  on('session.model', () => ({ value: 'qwen3-coder-30b' }))
+  on('turn.complete', () => ({ text: 'ok' }))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+  await $.turn.complete(turn)
+
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(await band.find({ text: 'qwen3-coder-30b' })).toBeDefined()
+  expect(await band.find({ text: '25%' })).toBeDefined()
+  await band.unmount()
+})

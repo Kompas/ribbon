@@ -44,6 +44,16 @@ Type `/ribbon` in any session for this legend.
 | `[ Details ]` | Desktop and VS Code: opens a card with the idle time, the cache size and the next-message price on each model. |
 | `[-]` at the far right | Claude Code's own control: it folds the whole band away. Click it again to bring the band back. |
 
+### Minimal style
+
+Prefer numbers only? Open `/config`, find **ribbon · Style** and pick `minimal`. The band changes right away:
+
+```
+96% · 8% · warm 60m
+```
+
+The order is fixed: week, 5-hour (when your plan has one), context, cache. A window under 15% turns amber, under 5% red. When the cache is cold it shows the next message's price (`cold $4.78`). There is no Details card in this style.
+
 ### Not on a Claude plan?
 
 The band adapts instead of waiting forever for limits that never come:
