@@ -80,6 +80,13 @@ export const viewOf = (c: CacheFacts | null, now: number, ttlMin = TTL_MIN): Cac
   }
 }
 
+/** Whether /model now names another priced model than the one the cache was written for. */
+export const switchedModel = (c: CacheFacts | null, current: string | null): boolean => {
+  const was = familyOf(c?.model)
+  const now = familyOf(current)
+  return !!(c && was && now && was !== now)
+}
+
 /** The model's name the way a person reads it: `claude-opus-5-5` is `opus-5-5`. */
 const shortModel = (m: string | null): string => (m ? m.replace(/^claude-/, '').replace(/\[1m\]$/, '') : '')
 
@@ -347,12 +354,17 @@ export const register: Register = (on, options) => {
     const facts = await read($, cache)
     const acct = await read($, account)
     const plan: Plan = acct?.plan ?? 'subscription'
+    // The model /model has set now; the cache facts name the model of the last reply.
+    const current = await Promise.resolve($.session.model()).catch(() => null)
     // Before the first reply there are no cache facts yet, but the session already knows its model.
-    const modelName = showModel === 'never' ? null : facts?.model ?? (await Promise.resolve($.session.model()).catch(() => null))
+    const modelName = showModel === 'never' ? null : current ?? facts?.model ?? null
     // A model the price table doesn't know isn't Claude: a local model or a gateway's own name.
     const modelShown = modelName && (showModel === 'always' || familyOf(modelName) === null) ? shortModel(modelName) : null
     const ttlMin = cacheMinutes(plan)
-    const view = parts.cache ? viewOf(facts, now, ttlMin) : null
+    // Each model has its own prompt cache: after a switch the new one starts cold, priced at its own rate.
+    const switched = switchedModel(facts, current)
+    const seen = viewOf(switched ? { ...facts!, model: current, usd: undefined } : facts, now, ttlMin)
+    const view = !parts.cache || !seen ? null : switched ? { ...seen, mode: 'cold' as const, idle: 'new model' } : seen
     const columns = e.props.bodyColumns ?? e.viewport?.columns ?? 100
 
     // ---- What there is to say, as items of text with a measured width ----
@@ -423,12 +435,12 @@ export const register: Register = (on, options) => {
           line: [
             { text: 'Cache ', color: 'subtle' },
             { text: cold ? 'cold' : 'warm', color: hue },
-            { text: cold ? ` ${view.idle}` : ` · cold in ${left}m`, color: 'subtle' },
+            { text: switched ? ' · new model' : cold ? ` ${view.idle}` : ` · cold in ${left}m`, color: 'subtle' },
             ...(cold && price ? [{ text: ' · next msg ', color: 'subtle' }, { text: price,  }] : []),
           ],
           block: [
             [{ text: 'Cache ', color: 'subtle' }, { text: cold ? 'cold' : 'warm', color: hue }],
-            [{ text: cold ? `idle ${view.idle}` : `cold in ${left}m`, color: 'subtle' }],
+            [{ text: switched ? 'new model' : cold ? `idle ${view.idle}` : `cold in ${left}m`, color: 'subtle' }],
             ...(price ? [[{ text: price,  }, { text: ' next msg', color: 'subtle' }]] : []),
           ],
         }

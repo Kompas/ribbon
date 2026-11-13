@@ -97,6 +97,7 @@ The band measures itself before it picks a layout, so nothing gets clipped:
 - **The account check stays local.** To notice a switch, the band compares the account and organization ids in `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`). It never shows or sends them.
 - **Prices are estimates.** They come from the table in `hooks/cache-art.ts` (`MODELS`), not from your bill.
 - **The cache length is a guess you can correct.** On a plan Claude Code writes the 1-hour cache; on an API key the band assumes 5 minutes. Set **Cache length** in `/config` if yours differs.
+- **A model switch starts cold.** Each model has its own prompt cache, so after `/model` the band shows `Cache cold · new model` with the new model's price for the next message.
 - **Subagents don't count.** Only your main chat resets the cache clock.
 - **Known notice:** if a security plugin runs before ribbon and doesn't pass `SessionStart` on, Claude Code prints `ribbon: its classic.SessionStart hook was skipped` ([#22](https://github.com/robonuggets/ribbon/issues/22)). Only the resumed-session cache estimate is lost; the rest works.
 
@@ -114,7 +115,7 @@ ribbon/
 │   ├── cache-art.ts        the cache card and robot drawings, the price table
 │   └── font.ts             Outfit, embedded so the drawings render anywhere
 ├── types/index.d.ts        the shape of what the band remembers
-└── tests/                  27 tests: layouts, plans, account switch, prices, cache
+└── tests/                  29 tests: layouts, plans, account switch, prices, cache
 ```
 
 ## Develop it

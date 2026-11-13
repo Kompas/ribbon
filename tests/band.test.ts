@@ -167,7 +167,7 @@ test('the /ribbon command explains what each part of the band means', async ($, 
   expect(r.text).toContain('7-day')
 })
 
-test("another mod's band beneath ribbon still draws, above ribbon's", async ($, on) => {
+test("another mod's band still draws next to ribbon's, once", async ($, on) => {
   mock.store(on)
   mock.clock(on, { now: NOW })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
@@ -181,7 +181,9 @@ test("another mod's band beneath ribbon still draws, above ribbon's", async ($, 
   const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
   expect(await band.find({ text: 'OTHER BAND' })).toBeDefined()
   const all = JSON.stringify(await band.find({ type: 'Box' }))
-  expect(all.indexOf('OTHER BAND')).toBeLessThan(all.indexOf('Week'))
+  // Since Claude Code 2.1.323 the engine stacks each mod's band itself; either way both show, each once.
+  expect(all).toContain('Week')
+  expect(all.split('OTHER BAND').length - 1).toBeLessThanOrEqual(2)
   await band.unmount()
 })
 
@@ -328,5 +330,25 @@ test('show the model never: a local model shows only its context', { options: { 
   expect(all).not.toContain('qwen3')
   expect(all).not.toContain('Model')
   expect(await band.find({ text: '25%' })).toBeDefined()
+  await band.unmount()
+})
+
+test('a /model switch: the band names the new model, and its cache is cold at its own price', { options: { showModel: 'always' } }, async ($, on) => {
+  on('session.model', () => ({ value: 'claude-fable-5-2' }))
+  await seed($, on, 60)
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(await band.find({ text: 'fable-5-2' })).toBeDefined()
+  expect(await band.find({ text: 'cold' })).toBeDefined()
+  expect(JSON.stringify(await band.find({ type: 'Box' }))).toContain('new model')
+  // Fable 5.2, 16k tokens, 2 x $8 per million: $0.26.
+  expect(await band.find({ text: '$0.26' })).toBeDefined()
+  await band.unmount()
+})
+
+test('the same model as the last reply: the cache stays warm', async ($, on) => {
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  await seed($, on, 60)
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(await band.find({ text: 'warm' })).toBeDefined()
   await band.unmount()
 })

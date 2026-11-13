@@ -377,7 +377,7 @@ export const cardSvg = (v: CacheView, kind: Kind, W: number): { source: string; 
   const h = H + CARD_TOP
   const body = `<g transform="translate(0 ${CARD_TOP})">` + hline(0) + g + '</g>'
   const alt = cold
-    ? `Cache cold. Idle ${v.idle}. Next message re-caches ${tok(v.tokens)} tokens.`
+    ? `Cache cold${v.idle === 'new model' ? ' for the new model' : `. Idle ${v.idle}`}. Next message re-caches ${tok(v.tokens)} tokens.`
     : `Cache warm. Goes cold in ${Math.max(0, v.ttlMin - v.idleMin)} minutes. ${tok(v.tokens)} tokens cached.`
   return { source: svgDoc(W, h, body, true), w: W, h, alt }
 }
