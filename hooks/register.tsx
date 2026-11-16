@@ -305,6 +305,13 @@ export const register: Register = (on, options) => {
     return r
   }).catch(($, e, next) => next(e))
 
+  // /model changes what the band says at once: draw again now, not at the next tick.
+  on('classic.PostModelSwitch', async ($, e, next) => {
+    const r = await next(e)
+    $.ui.invalidate('ui.render')
+    return r
+  }).catch(($, e, next) => next(e))
+
   // Each main-thread request reads or writes the cache, so its start resets the hour.
   on('turn.step', async function* ($, e, next) {
     if (!e.agentId) {

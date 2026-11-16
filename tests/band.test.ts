@@ -345,6 +345,20 @@ test('a /model switch: the band names the new model, and its cache is cold at it
   await band.unmount()
 })
 
+test('a /model switch redraws the open band at once, not at the next tick', { options: { showModel: 'always' } }, async ($, on) => {
+  let model = 'claude-opus-5-5'
+  on('session.model', () => ({ value: model }))
+  on('classic.PostModelSwitch', () => ({}))
+  await seed($, on, 60)
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(await band.find({ text: 'opus-5-5' })).toBeDefined()
+  model = 'claude-fable-5-2'
+  await $.classic.PostModelSwitch({ from_model: 'claude-opus-5-5', to_model: model, requested_model: 'fable', source: 'command', context_tokens: 16000, prompt_cache_warm: true, cache_ttl: '1h', estimated_cache_write_usd: 0.26, pricing: 'catalog' })
+  expect(await band.find({ text: 'fable-5-2' })).toBeDefined()
+  expect(JSON.stringify(await band.find({ type: 'Box' }))).toContain('new model')
+  await band.unmount()
+})
+
 test('the same model as the last reply: the cache stays warm', async ($, on) => {
   on('session.model', () => ({ value: 'claude-opus-5-5' }))
   await seed($, on, 60)
