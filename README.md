@@ -42,7 +42,7 @@ Type `/ribbon` in any session for this legend.
 | `5-hour ●●●●●●●●●○ 92% left · resets in 2h 10m` | The same for the rolling 5-hour window. Under 15% the dots turn amber and **LOW** shows; under 5% they turn red. Some plans only report the weekly window; then only `Week` shows, as in Claude Code's own `/usage`. |
 | `Context 34%` | How full this conversation's context window is. Amber from 85%. |
 | `Cache warm · cold in 56m` | Your chat is in Anthropic's prompt cache, so the next message is cheap. The cache lasts an hour after your last message. |
-| `Cache cold 3h 5m · next msg $4.78` | The hour has passed. The next message re-sends the whole chat at full price. |
+| `Cache cold 3h 5m · next msg $4.78 at API price` | The hour has passed. The next message re-sends the whole chat at full price. On a plan you pay nothing extra: it is what that message would cost on an API key, a sign of how much of your limits it takes. On an API key the label drops, because then it is the bill. |
 | `[ Details ]` | Desktop and VS Code: opens a card with the idle time, the cache size and the next-message price on each model. |
 | `[-]` at the far right | Claude Code's own control: it folds the whole band away. Click it again to bring the band back. |
 
@@ -52,7 +52,7 @@ Open `/config` and scroll to **ribbon**. Every change shows at once.
 
 | Option | Choices | What it does |
 | --- | --- | --- |
-| Style | `full` · `minimal` | `minimal` is numbers only, `96% · 8% · warm 60m`, in a fixed order: week, 5-hour, context, cache. A cold cache shows the next message's price (`cold $4.78`). No Details card. |
+| Style | `full` · `minimal` | `minimal` is numbers only, `96% · 8% · warm 60m`, in a fixed order: week, 5-hour, context, cache. A cold cache shows the next message's price (`cold $4.78 API` on a plan). No Details card. |
 | Colours | `full` · `muted` · `off` | `muted` is all grey, in Claude Code's own greys, with colour only for a low window or a full context. `off` has no colour at all, warnings in bold. |
 | Show | `always` · `when it matters` | `when it matters` hides the band until a window drops under 25%, the cache goes cold, or the context passes 85%. |
 | Show the dot bars | on · off | Off: `Week 96% left · resets in 6d 21h`, no dots. A low window colours the percentage instead. |
@@ -86,7 +86,7 @@ The band measures itself before it picks a layout, so nothing gets clipped:
 | `7D`, `5H`, `WARM` were hard to read at a glance. | Plain labels (`Week`, `5-hour`, `resets in`, `cold in`, `next msg`) and a `/ribbon` legend. |
 | Loud orange and yellow on a fixed dark slab; dark even in a light theme ([#3](https://github.com/robonuggets/ribbon/issues/3), [#14](https://github.com/robonuggets/ribbon/issues/14)). | The band uses your theme's colours (Claude's own coral, its amber and red for warnings), so it follows light and dark. The card swaps to a light palette by itself. |
 | Chip and Show button clipped between ~78 and ~112 columns ([#3](https://github.com/robonuggets/ribbon/issues/3), [#14](https://github.com/robonuggets/ribbon/issues/14)). | Layout chosen by measuring the real text. The button sits beside the band, never on it. |
-| Sonnet 5.5 cache reads priced at $0.20, Haiku 5.5 always at the long-prompt rate ([#2](https://github.com/robonuggets/ribbon/pull/2), [#8](https://github.com/robonuggets/ribbon/issues/8)). | Prices checked against Anthropic's list on 2026-11-11: Fable 5.2 $8 / $0.20, Opus 5.5 $4 / $0.20, Sonnet 5.5 $2 / $0.10, Haiku 5.5 $0.10 / $0.01 up to 100K tokens. Older versions keep their own rates. |
+| Sonnet 5.5 cache reads priced at $0.20, Haiku 5.5 always at the long-prompt rate ([#2](https://github.com/robonuggets/ribbon/pull/2), [#8](https://github.com/robonuggets/ribbon/issues/8)). | Prices checked against Anthropic's list on 2026-11-16: Fable 5.2 $8 / $0.20, Fable 5.1 $10 / $0.25, Fable 5 $10 / $1, Opus 5.5 $4 / $0.20, Sonnet 5.5 $2 / $0.10, Haiku 5.5 $0.10 / $0.01 up to 100K tokens. Older versions keep their own rates. |
 | A resume priced re-caching from the table even when Claude Code knew better ([#7](https://github.com/robonuggets/ribbon/pull/7)). | Uses Claude Code's own `estimated_cache_write_usd` while cold. |
 | Another mod's band disappeared when ribbon drew first ([#4](https://github.com/robonuggets/ribbon/pull/4)). | The other band stays and draws above ribbon. |
 | Desktop app hides the context gauge ([#17](https://github.com/robonuggets/ribbon/issues/17)). | Context is part of the band. |
@@ -95,7 +95,7 @@ The band measures itself before it picks a layout, so nothing gets clipped:
 
 - **No tokens spent.** The band reads Claude Code's own figures. On a plan it also asks the account's usage endpoint (the one `/usage` uses) at start, after a switch, and at most every 5 minutes. That request costs no tokens.
 - **The account check stays local.** To notice a switch, the band compares the account and organization ids in `~/.claude.json` (or `$CLAUDE_CONFIG_DIR/.claude.json`). It never shows or sends them.
-- **Prices are estimates.** They come from the table in `hooks/cache-art.ts` (`MODELS`), not from your bill.
+- **Prices are estimates at API rates.** They come from the table in `hooks/cache-art.ts` (`MODELS`), not from your bill. On a Claude plan the band says `at API price`, since the message costs you limits, not money.
 - **The cache length is a guess you can correct.** On a plan Claude Code writes the 1-hour cache; on an API key the band assumes 5 minutes. Set **Cache length** in `/config` if yours differs.
 - **A model switch starts cold.** Each model has its own prompt cache, so after `/model` the band shows `Cache cold · new model` with the new model's price for the next message, straight away.
 - **Subagents don't count.** Only your main chat resets the cache clock.
@@ -115,7 +115,7 @@ ribbon/
 │   ├── cache-art.ts        the cache card and robot drawings, the price table
 │   └── font.ts             Outfit, embedded so the drawings render anywhere
 ├── types/index.d.ts        the shape of what the band remembers
-└── tests/                  30 tests: layouts, plans, account switch, prices, cache
+└── tests/                  33 tests: layouts, plans, account switch, prices, cache
 ```
 
 ## Develop it

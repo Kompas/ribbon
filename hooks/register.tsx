@@ -103,8 +103,10 @@ export const LEGEND = [
   '  Cache warm · cold in 56m',
   '    Your conversation is in Anthropic\'s prompt cache: the next message is cheap.',
   '    The cache lasts an hour after your last message.',
-  '  Cache cold · next msg $4.78',
+  '  Cache cold · next msg $4.78 at API price',
   '    The hour has passed: the next message re-sends the whole chat at full price.',
+  '    On a plan you pay nothing extra: it is what that message would cost on an',
+  '    API key, a sign of how much of your limits it takes.',
   '    Details opens a card with the price on each model.',
   '',
   'On an API key it shows the session\'s cost; on a cloud provider, gateway or local',
@@ -435,6 +437,8 @@ export const register: Register = (on, options) => {
     const hue = cold ? 'suggestion' : 'claude'
     const left = view ? Math.max(0, view.ttlMin - view.idleMin) : 0
     const price = view && mine ? usd(myCost(view, mine)) : null
+    // On an API key the price is the bill; anywhere else it is what the message would cost at API rates.
+    const listPrice = plan !== 'api'
     const cacheItem: Item | null = !view
       ? null
       : {
@@ -443,12 +447,13 @@ export const register: Register = (on, options) => {
             { text: 'Cache ', color: 'subtle' },
             { text: cold ? 'cold' : 'warm', color: hue },
             { text: switched ? ' · new model' : cold ? ` ${view.idle}` : ` · cold in ${left}m`, color: 'subtle' },
-            ...(cold && price ? [{ text: ' · next msg ', color: 'subtle' }, { text: price,  }] : []),
+            ...(cold && price ? [{ text: ' · next msg ', color: 'subtle' }, { text: price,  }, ...(listPrice ? [{ text: ' at API price', color: 'subtle' }] : [])] : []),
           ],
           block: [
             [{ text: 'Cache ', color: 'subtle' }, { text: cold ? 'cold' : 'warm', color: hue }],
             [{ text: switched ? 'new model' : cold ? `idle ${view.idle}` : `cold in ${left}m`, color: 'subtle' }],
             ...(price ? [[{ text: price,  }, { text: ' next msg', color: 'subtle' }]] : []),
+            ...(price && listPrice ? [[{ text: 'at API price', color: 'subtle' }]] : []),
           ],
         }
 
@@ -501,7 +506,7 @@ export const register: Register = (on, options) => {
       if (ctxPct !== null) bits.push({ text: `${ctxPct}%`, color: ctxPct >= 85 ? 'warning' : undefined })
       if (view) {
         bits.push({ text: cold ? 'cold' : 'warm', color: hue })
-        bits.push({ text: cold ? ` ${price ?? view.idle}` : ` ${left}m`, color: 'subtle' })
+        bits.push({ text: cold ? ` ${price ? (listPrice ? `${price} API` : price) : view.idle}` : ` ${left}m`, color: 'subtle' })
       }
       const shown: Part[] = bits.flatMap((b, i) => (i === 0 || b.text.startsWith(' ') ? [b] : [{ text: ' · ', color: 'subtle' }, b])).map(tint)
       const own = (

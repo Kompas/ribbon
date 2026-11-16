@@ -63,12 +63,13 @@ export const bandPx = (columns: number): number => (columns + 5) * 12
 // input. A row matches a model id that contains any of its `ids`; the first match
 // wins, so the newer, cheaper versions come before their family's catch-all.
 // Haiku 5.5 is cheaper up to 100K tokens of prompt (`short`).
-// Checked against Anthropic's price list on 2026-11-11.
+// Checked against Anthropic's price list on 2026-11-16.
 export type Rate = { input: number; read: number }
 export type Model = Rate & { id: string; NAME: string; ids: string[]; short?: Rate & { upTo: number }; card?: boolean }
 export const MODELS: Model[] = [
   { id: 'fable', NAME: 'FABLE', ids: ['fable-5-2', 'mythos-5-2'], input: 8, read: 0.2, card: true },
-  { id: 'fable-old', NAME: 'FABLE', ids: ['fable', 'mythos'], input: 10, read: 0.25 },
+  { id: 'fable-5-1', NAME: 'FABLE', ids: ['fable-5-1', 'mythos-5-1'], input: 10, read: 0.25 },
+  { id: 'fable-old', NAME: 'FABLE', ids: ['fable', 'mythos'], input: 10, read: 1 },
   { id: 'opus', NAME: 'OPUS', ids: ['opus-5-5'], input: 4, read: 0.2, card: true },
   { id: 'opus-old', NAME: 'OPUS', ids: ['opus'], input: 5, read: 0.5 },
   { id: 'sonnet', NAME: 'SONNET', ids: ['sonnet-5-5'], input: 2, read: 0.1, card: true },
@@ -331,7 +332,7 @@ export const cardSvg = (v: CacheView, kind: Kind, W: number): { source: string; 
     const k = o.compact
       ? { lab: 24, base: 100, rows: 6, step: 7, chip: 58, price: 88, name: 102 }
       : { lab: 30, base: 116, rows: 8, step: 8, chip: 70, price: 104, name: 120 }
-    let g = t(x, y + k.lab, cold ? 'NEXT MESSAGE COSTS' : 'NEXT MESSAGE COSTS, CACHED', { ls: 1.4 })
+    let g = t(x, y + k.lab, cold ? 'NEXT MESSAGE AT API PRICE' : 'NEXT MESSAGE AT API PRICE, CACHED', { ls: 1.4 })
     const top = Math.max(...CARD_MODELS.map(m => coldCost(m, v.tokens, v.ttlMin)))
     const me = mineModel(v)
     CARD_MODELS.forEach((m, i) => {

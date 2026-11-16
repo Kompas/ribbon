@@ -154,3 +154,61 @@ test('prices: Sonnet 5.5 reads at $0.10 and short Haiku 5.5 prompts at the lower
   expect(await haiku.find({ text: '$0.02' })).toBeDefined()
   await haiku.unmount()
 })
+
+test('prices: Fable 5.1 reads at $0.25 and Fable 5 at $1, not at the 5.2 rate', async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 1000000 }, rateLimits: WINDOWS } }))
+  let model = ''
+  on('session.model', () => ({ value: model }))
+  on('classic.SessionStart', () => ({}))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+
+  // 400k cached tokens, read at each version's own rate.
+  for (const [id, price] of [['claude-fable-5-2', '$0.08'], ['claude-fable-5-1', '$0.10'], ['claude-fable-5', '$0.40'], ['claude-mythos-5-1', '$0.10']] as const) {
+    model = id
+    await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: WARM_IDLE, context_tokens: 400000, model })
+    const band = await $.ui.mount({ plugin: 'ribbon', surface: 'desktop', component: 'AbovePrompt', props: { ...PROPS, bodyColumns: 50 } })
+    expect(await band.find({ text: price })).toBeDefined()
+    await band.unmount()
+  }
+})
+
+test('on a plan the next-message price says it is the API price', async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 1000000 }, rateLimits: WINDOWS } }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('classic.SessionStart', () => ({}))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+  await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: COLD_IDLE, context_tokens: 100000, model: 'claude-opus-5-5' })
+
+  // One row: Cache cold 3d 9h · next msg $0.80 at API price.
+  const wide = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: { ...PROPS, bodyColumns: 200 } })
+  expect(await wide.find({ text: ' at API price' })).toBeDefined()
+  await wide.unmount()
+  // Stacked: the label gets its own line under the price.
+  const narrow = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  expect(await narrow.find({ text: 'at API price' })).toBeDefined()
+  await narrow.unmount()
+})
+
+test('on an API key the next-message price carries no API-price label', async ($, on) => {
+  mock.store(on)
+  mock.clock(on, { now: NOW })
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.usage', () => ({ value: { startedAt: 0, context: { window: 1000000 }, rateLimits: [] } }))
+  on('session.authorize', () => ({ value: { handle: 'h', kind: 'api-key' } }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }))
+  on('classic.SessionStart', () => ({}))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/work' })
+  await $.classic.SessionStart({ source: 'resume', seconds_since_last_response: COLD_IDLE, context_tokens: 100000, model: 'claude-opus-5-5' })
+
+  const band = await $.ui.mount({ plugin: 'ribbon', surface: 'terminal', component: 'AbovePrompt', props: PROPS })
+  // 100k tokens at the 5-minute write, 1.25 x $4 per million.
+  expect(await band.find({ text: '$0.50' })).toBeDefined()
+  expect(JSON.stringify(await band.find({ type: 'Box' }))).not.toContain('API price')
+  await band.unmount()
+})
