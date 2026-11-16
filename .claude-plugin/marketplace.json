@@ -1,11 +1,30 @@
 {
   "name": "kompas",
-  "owner": { "name": "Kompas", "url": "https://github.com/Kompas" },
+  "owner": {
+    "name": "Kompas",
+    "url": "https://github.com/Kompas"
+  },
   "plugins": [
     {
       "name": "ribbon",
       "source": "./",
       "description": "A quiet band above the prompt: usage left, context, and whether the prompt cache is warm or cold. A fork of robonuggets/ribbon."
+    },
+    {
+      "name": "dirigent",
+      "source": {
+        "source": "github",
+        "repo": "Kompas/dirigent"
+      },
+      "description": "Opus weighs each task as small or large. A large one gets Fable 5.2 as planner and reviewer, cheaper models as workers, and one round of questions up front."
+    },
+    {
+      "name": "ambition",
+      "source": {
+        "source": "github",
+        "repo": "Kompas/ambition"
+      },
+      "description": "Finds the deeper version of a task: the answer first, at most three upgrades that each name an outside judge, and a brief you can run."
     }
   ]
 }
